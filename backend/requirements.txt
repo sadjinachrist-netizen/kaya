@@ -1,0 +1,12 @@
+# ---------- Framework ----------
+Django==5.2.*
+djangorestframework
+
+# ---------- Base de données ----------
+psycopg[binary]
+
+# ---------- Configuration ----------
+python-decouple
+
+# ---------- API ----------
+django-cors-headers
