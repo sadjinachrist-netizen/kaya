@@ -94,3 +94,28 @@ class User(AbstractBaseUser, PermissionsMixin):
     @property
     def is_locked(self):
         return self.locked_until is not None and self.locked_until > timezone.now()
+
+
+    def has_permission(self, code):
+        """Verifie si l'utilisateur detient la permission demandee."""
+        if self.is_superuser:
+            return True
+        return self.roles.filter(permissions__code=code).exists()
+
+    @property
+    def permission_codes(self):
+        """Ensemble des codes de permission effectifs de l'utilisateur."""
+        from authorization.models import Permission
+
+        if self.is_superuser:
+            return set(Permission.objects.values_list("code", flat=True))
+        return set(
+            Permission.objects.filter(roles__users=self)
+            .values_list("code", flat=True)
+            .distinct()
+        )
+
+    @property
+    def mfa_required(self):
+        """Le second facteur est impose des qu'un role l'exige."""
+        return self.mfa_enabled or self.roles.filter(requires_mfa=True).exists()

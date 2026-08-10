@@ -28,6 +28,7 @@ THIRD_PARTY_APPS = [
 
 LOCAL_APPS = [
     "accounts",
+    "authorization",
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -115,3 +116,4 @@ REST_FRAMEWORK = {
 
 # Modele utilisateur personnalise - a definir avant la premiere migration
 AUTH_USER_MODEL = "accounts.User"
+
