@@ -45,6 +45,7 @@ class Role(models.Model):
 
     permissions = models.ManyToManyField(
         Permission,
+        through="RolePermission",
         related_name="roles",
         blank=True,
         verbose_name=_("permissions"),
@@ -63,3 +64,33 @@ class Role(models.Model):
 
     def __str__(self):
         return self.label
+
+class RolePermission(models.Model):
+    """Attribution d'une permission a un role, avec son etendue."""
+
+    class Scope(models.TextChoices):
+        GLOBAL = "global", _("Toutes les donnees du systeme")
+        PORTEE = "portee", _("Limitee a la portee de l'utilisateur")
+
+    role = models.ForeignKey(
+        Role, on_delete=models.CASCADE, related_name="grants", verbose_name=_("role")
+    )
+    permission = models.ForeignKey(
+        Permission, on_delete=models.CASCADE, related_name="grants", verbose_name=_("permission")
+    )
+    scope = models.CharField(
+        _("etendue"), max_length=10, choices=Scope.choices, default=Scope.PORTEE
+    )
+
+    class Meta:
+        verbose_name = _("attribution de permission")
+        verbose_name_plural = _("attributions de permissions")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["role", "permission"], name="unique_role_permission"
+            )
+        ]
+        ordering = ["role", "permission"]
+
+    def __str__(self):
+        return f"{self.role.code} → {self.permission.code} ({self.scope})"

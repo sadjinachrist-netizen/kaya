@@ -119,3 +119,24 @@ class User(AbstractBaseUser, PermissionsMixin):
     def mfa_required(self):
         """Le second facteur est impose des qu'un role l'exige."""
         return self.mfa_enabled or self.roles.filter(requires_mfa=True).exists()
+
+
+    def permission_scope(self, code):
+        """Renvoie l'etendue d'une permission : 'global', 'portee' ou None.
+
+        La valeur la plus permissive l'emporte en cas de cumul de roles.
+        """
+        if self.is_superuser:
+            return "global"
+        from authorization.models import RolePermission
+
+        etendues = set(
+            RolePermission.objects.filter(
+                role__users=self, permission__code=code
+            ).values_list("scope", flat=True)
+        )
+        if "global" in etendues:
+            return "global"
+        if "portee" in etendues:
+            return "portee"
+        return None
