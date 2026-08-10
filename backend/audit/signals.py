@@ -1,8 +1,9 @@
 """Capture automatique des ecritures en base dans le journal d'audit."""
 from django.apps import apps
+from django.contrib.admin import action
 from django.db.models.signals import post_delete, post_save, pre_save
 
-from .context import requete_courante, utilisateur_courant
+from .context import audit_actif, requete_courante, utilisateur_courant
 from .models import AuditLog
 
 # Modeles dont chaque ecriture est tracee
@@ -37,8 +38,10 @@ def _ip_du_client(request):
 
 
 def _ecrire(action, instance, old_value=None, new_value=None):
-    request = requete_courante()
-    AuditLog.objects.create(
+     if not audit_actif():
+        return
+     request = requete_courante()
+     AuditLog.objects.create(
         actor=utilisateur_courant(),
         action=action,
         object_type=instance.__class__.__name__,

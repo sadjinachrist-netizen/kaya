@@ -8,6 +8,9 @@ from django.db import transaction
 
 from authorization.models import Permission, Role, RolePermission
 
+from audit.context import audit_suspendu
+from audit.services import journaliser
+
 # Ordre des colonnes de la matrice : ADM DIR COO CDP SUP AGT M&E FIN BAI AUD
 ROLES = [
     ("admin_systeme", "Administrateur systeme", True,
@@ -113,37 +116,50 @@ class Command(BaseCommand):
                     f"{len(matrice)} cases pour {len(ROLES)} roles."
                 )
 
-        roles = {}
-        for code, label, mfa, description in ROLES:
-            role, _ = Role.objects.update_or_create(
-                code=code,
-                defaults={"label": label, "requires_mfa": mfa, "description": description},
-            )
-            roles[code] = role
-
-        permissions = {}
-        for code, module, label, _matrice in PERMISSIONS:
-            perm, _ = Permission.objects.update_or_create(
-                code=code, defaults={"module": module, "label": label}
-            )
-            permissions[code] = perm
-
-        # La matrice du document fait autorite : on repart d'elle
-        RolePermission.objects.all().delete()
-
-        attributions = []
-        for code, _module, _label, matrice in PERMISSIONS:
-            for index, symbole in enumerate(matrice):
-                if symbole == ".":
-                    continue
-                attributions.append(
-                    RolePermission(
-                        role=roles[ROLES[index][0]],
-                        permission=permissions[code],
-                        scope=ETENDUES[symbole],
-                    )
+        # Chargement de reference : la journalisation unitaire est suspendue,
+        # une entree de synthese est ecrite juste apres.
+        with audit_suspendu():
+            roles = {}
+            for code, label, mfa, description in ROLES:
+                role, _ = Role.objects.update_or_create(
+                    code=code,
+                    defaults={"label": label, "requires_mfa": mfa, "description": description},
                 )
-        RolePermission.objects.bulk_create(attributions)
+                roles[code] = role
+
+            permissions = {}
+            for code, module, label, _matrice in PERMISSIONS:
+                perm, _ = Permission.objects.update_or_create(
+                    code=code, defaults={"module": module, "label": label}
+                )
+                permissions[code] = perm
+
+            # La matrice du document fait autorite : on repart d'elle
+            RolePermission.objects.all().delete()
+
+            attributions = []
+            for code, _module, _label, matrice in PERMISSIONS:
+                for index, symbole in enumerate(matrice):
+                    if symbole == ".":
+                        continue
+                    attributions.append(
+                        RolePermission(
+                            role=roles[ROLES[index][0]],
+                            permission=permissions[code],
+                            scope=ETENDUES[symbole],
+                        )
+                    )
+            RolePermission.objects.bulk_create(attributions)
+
+        journaliser(
+            "modification",
+            object_type="Habilitations",
+            object_label="Matrice des roles et permissions",
+            detail=(
+                f"Rechargement : {len(roles)} roles, {len(permissions)} permissions, "
+                f"{len(attributions)} attributions"
+            ),
+        )
 
         globales = sum(1 for a in attributions if a.scope == RolePermission.Scope.GLOBAL)
         self.stdout.write(self.style.SUCCESS(

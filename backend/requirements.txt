@@ -10,3 +10,6 @@ python-decouple
 
 # ---------- API ----------
 django-cors-headers
+
+# ---------- Images ----------
+Pillow
