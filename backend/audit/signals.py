@@ -12,6 +12,10 @@ MODELES_AUDITES = [
     "authorization.Role",
     "authorization.Permission",
     "authorization.RolePermission",
+    "projects.Project",
+    "projects.InterventionSite",
+    "projects.TeamMember",
+    "projects.Amendment",
 ]
 
 # Jamais journalises : secrets ou bruit sans valeur

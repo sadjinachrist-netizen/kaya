@@ -1,6 +1,8 @@
 """Roles et permissions - paquetage P1 Securite et habilitations."""
 from django.db import models
 from django.utils.translation import gettext_lazy as _
+from django.core.exceptions import ValidationError
+from django.utils import timezone
 
 
 class Permission(models.Model):
@@ -94,3 +96,84 @@ class RolePermission(models.Model):
 
     def __str__(self):
         return f"{self.role.code} → {self.permission.code} ({self.scope})"
+
+
+
+
+class UserScope(models.Model):
+    """Perimetre de donnees accessible a un utilisateur.
+
+    Troisieme dimension du modele d'habilitation : la permission dit
+    *ce que* l'utilisateur peut faire, la portee dit *sur quoi*.
+    """
+
+    class Type(models.TextChoices):
+        GLOBAL = "global", _("Toutes les donnees")
+        PROJECT = "project", _("Un projet")
+        ZONE = "zone", _("Une zone geographique")
+
+    user = models.ForeignKey(
+        "accounts.User",
+        on_delete=models.CASCADE,
+        related_name="scopes",
+        verbose_name=_("utilisateur"),
+    )
+    scope_type = models.CharField(_("type de portee"), max_length=10, choices=Type.choices)
+    project = models.ForeignKey(
+        "projects.Project",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="scopes",
+        verbose_name=_("projet"),
+    )
+    zone = models.ForeignKey(
+        "referentials.Zone",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="scopes",
+        verbose_name=_("zone"),
+    )
+
+    # Delegation temporaire : une fin est obligatoire (regle 8.1)
+    start_date = models.DateField(_("debut de validite"), null=True, blank=True)
+    end_date = models.DateField(_("fin de validite"), null=True, blank=True)
+
+    class Meta:
+        verbose_name = _("portee")
+        verbose_name_plural = _("portees")
+        ordering = ["user", "scope_type"]
+        constraints = [
+            models.CheckConstraint(
+                condition=(
+                    models.Q(scope_type="global", project__isnull=True, zone__isnull=True)
+                    | models.Q(scope_type="project", project__isnull=False, zone__isnull=True)
+                    | models.Q(scope_type="zone", zone__isnull=False, project__isnull=True)
+                ),
+                name="portee_coherente",
+            )
+        ]
+
+    def __str__(self):
+        cible = self.project or self.zone or "tout le systeme"
+        return f"{self.user.username} → {cible}"
+
+    def clean(self):
+        if self.scope_type == self.Type.PROJECT and self.project is None:
+            raise ValidationError({"project": _("Un projet doit etre designe.")})
+        if self.scope_type == self.Type.ZONE and self.zone is None:
+            raise ValidationError({"zone": _("Une zone doit etre designee.")})
+        if self.scope_type == self.Type.GLOBAL and (self.project or self.zone):
+            raise ValidationError(_("Une portee globale ne designe ni projet ni zone."))
+        if self.end_date and self.start_date and self.end_date < self.start_date:
+            raise ValidationError({"end_date": _("La fin ne peut preceder le debut.")})
+
+    @property
+    def is_active(self):
+        aujourdhui = timezone.localdate()
+        if self.start_date and self.start_date > aujourdhui:
+            return False
+        if self.end_date and self.end_date < aujourdhui:
+            return False
+        return True
