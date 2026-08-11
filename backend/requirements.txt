@@ -13,3 +13,6 @@ django-cors-headers
 
 # ---------- Images ----------
 Pillow
+
+# ---------- Authentification ----------
+djangorestframework-simplejwt

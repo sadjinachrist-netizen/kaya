@@ -2,6 +2,8 @@
 from pathlib import Path
 
 from decouple import Csv, config
+from datetime import timedelta
+
 
 # backend/
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
@@ -23,6 +25,7 @@ DJANGO_APPS = [
 
 THIRD_PARTY_APPS = [
     "rest_framework",
+    "rest_framework_simplejwt.token_blacklist",
     "corsheaders",
 ]
 
@@ -107,6 +110,10 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # ------------------------------------------------------------------ Django REST
 REST_FRAMEWORK = {
+
+     "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+    ],
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.IsAuthenticated",
     ],
@@ -131,3 +138,19 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "audit.middleware.AuditContextMiddleware",
 ]
+
+# ---------------------------------------------------------------- Jetons JWT
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
+    "ROTATE_REFRESH_TOKENS": True,
+    "BLACKLIST_AFTER_ROTATION": True,
+    "UPDATE_LAST_LOGIN": True,
+    "AUTH_HEADER_TYPES": ("Bearer",),
+    "USER_ID_FIELD": "id",
+    "USER_ID_CLAIM": "user_id",
+}
+
+# Duree du verrouillage apres cinq echecs consecutifs (regle 8.1)
+MAX_TENTATIVES_CONNEXION = 5
+DUREE_VERROUILLAGE = timedelta(minutes=15)
