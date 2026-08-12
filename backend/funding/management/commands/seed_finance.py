@@ -96,6 +96,12 @@ class Command(BaseCommand):
                 )
                 bailleurs.append(bailleur)
 
+                            # Le compte de demonstration bailleur represente ECHO
+            compte_bailleur = User.objects.filter(username="bailleur.demo").first()
+            if compte_bailleur:
+                compte_bailleur.donor = Donor.objects.get(acronym="ECHO")
+                compte_bailleur.save(update_fields=["donor"])
+
             euro = Currency.objects.get(code="EUR")
             franc = Currency.objects.get(code="XOF")
 

@@ -74,20 +74,24 @@ def projets_accessibles(user):
     )
     zones_etendues = zones_avec_descendants(zones) if zones else set()
 
+    
     aujourdhui = timezone.localdate()
-    return (
-        Project.objects.filter(
-            Q(pk__in=list(projets_directs))
-            | Q(sites__zone_id__in=zones_etendues)
-            | Q(manager=user)
-            | (
-                Q(members__user=user)
-                & Q(members__start_date__lte=aujourdhui)
-                & (Q(members__end_date__isnull=True) | Q(members__end_date__gte=aujourdhui))
-            )
+    conditions = (
+        Q(pk__in=list(projets_directs))
+        | Q(sites__zone_id__in=zones_etendues)
+        | Q(manager=user)
+        | (
+            Q(members__user=user)
+            & Q(members__start_date__lte=aujourdhui)
+            & (Q(members__end_date__isnull=True) | Q(members__end_date__gte=aujourdhui))
         )
-        .distinct()
     )
+
+    # Un compte bailleur accede aux projets finances par son organisme
+    if getattr(user, "donor_id", None):
+        conditions |= Q(grant_links__grant__donor_id=user.donor_id)
+
+    return Project.objects.filter(conditions).distinct()
 
 
 def filtrer_par_portee(queryset, user, chemin_projet="project"):

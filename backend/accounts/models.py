@@ -58,6 +58,16 @@ class User(AbstractBaseUser, PermissionsMixin):
     first_name = models.CharField(_("prenom"), max_length=100, blank=True)
     last_name = models.CharField(_("nom"), max_length=100, blank=True)
     phone = models.CharField(_("telephone"), max_length=30, blank=True)
+        # Un compte de type bailleur est rattache a l'organisme qu'il represente :
+    # il ne voit alors que les projets finances par cet organisme.
+    donor = models.ForeignKey(
+        "referentials.Donor",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="users",
+        verbose_name=_("bailleur represente"),
+    )
 
     # Un compte n'est jamais supprime, il est desactive (regle de gestion 8.1)
     is_active = models.BooleanField(_("actif"), default=True)

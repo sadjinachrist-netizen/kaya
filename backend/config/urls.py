@@ -48,6 +48,7 @@ def racine_api(request):
             "depenses": request.build_absolute_uri("/api/depenses/"),
             "indicateurs": request.build_absolute_uri("/api/indicateurs/"),
             "cadre_logique": request.build_absolute_uri("/api/cadre-logique/"),
+            "tableau_de_bord": request.build_absolute_uri("/api/tableau-de-bord/"),
         },
     })
 
@@ -63,6 +64,7 @@ urlpatterns = [
     path("api/", include("referentials.urls")),
     path("api/", include("funding.urls")),
     path("api/", include("monitoring.urls")),
+    path("api/", include("dashboards.urls")),
 ]
 
 if settings.DEBUG:
