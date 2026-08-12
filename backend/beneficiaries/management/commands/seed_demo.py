@@ -1,8 +1,9 @@
 """Jeu de donnees de demonstration realiste pour Kaya.
 
-Cree les comptes de demonstration, un portefeuille de projets et une
-population de menages avec leurs membres, leurs consentements et
-quelques doublons volontaires.
+Cree les comptes de demonstration, un portefeuille de projets, une
+population de menages avec leurs membres et leurs consentements,
+quelques doublons volontaires et des activites terrain a differents
+stades du workflow de validation.
 
 Toutes les personnes sont fictives.
 """
@@ -15,6 +16,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from accounts.models import User
+from activities.models import Activity, ActivityParticipation, Attachment
 from audit.context import audit_suspendu
 from audit.services import journaliser
 from authorization.models import Role, UserScope
@@ -76,6 +78,27 @@ PROJETS = [
     ("PRJ-2025-012", "Nutrition infantile - Maritime", "nutrition", "maritime", "cloture", 2200),
 ]
 
+ACTIVITES_TYPES = [
+    ("formation", "Formation de {n} membres du comite villageois",
+     "Session tenue, supports remis, participants evalues en fin de seance."),
+    ("sensibilisation", "Seance de sensibilisation communautaire",
+     "Messages cles diffuses, questions des participants traitees."),
+    ("distribution", "Distribution de kits aux menages cibles",
+     "Distribution realisee sans incident, emargement complet."),
+    ("visite", "Visite de suivi des menages beneficiaires",
+     "Situation des menages verifiee, deux cas signales au superviseur."),
+    ("reunion", "Reunion de coordination avec les autorites locales",
+     "Points d'accord consignes, prochaine rencontre programmee."),
+    ("enquete", "Enquete de satisfaction post-intervention",
+     "Questionnaires collectes aupres d'un echantillon de menages."),
+]
+
+MOTIFS_REJET = [
+    "Liste de presence illisible, merci de rescanner le document.",
+    "Le nombre de participants ne correspond pas aux resultats decrits.",
+    "Position GPS hors de la zone d'intervention du projet.",
+]
+
 
 class Command(BaseCommand):
     help = "Cree un jeu de donnees de demonstration realiste."
@@ -93,6 +116,9 @@ class Command(BaseCommand):
 
         with audit_suspendu():
             if options["reset"]:
+                ActivityParticipation.objects.all().delete()
+                Attachment.objects.all().delete()
+                Activity.objects.all().delete()
                 DuplicateCandidate.objects.all().delete()
                 HouseholdProject.objects.all().delete()
                 Person.objects.all().delete()
@@ -134,7 +160,7 @@ class Command(BaseCommand):
             agent = comptes["agent_terrain"]
             superviseur = comptes["superviseur"]
 
-            # La direction et le M&E voient tout
+            # La direction, le M&E et la finance voient tout
             for cle in ("direction", "suivi_evaluation", "charge_financier"):
                 UserScope.objects.get_or_create(
                     user=comptes[cle], scope_type=UserScope.Type.GLOBAL
@@ -187,7 +213,6 @@ class Command(BaseCommand):
             depart = Household.objects.filter(code__startswith=f"BEN-{annee}-").count()
 
             menages, membres, consentements, liens = [], [], [], []
-            noms_utilises = []
 
             for index in range(nb_menages):
                 projet = alea.choice(projets_actifs)
@@ -198,7 +223,7 @@ class Command(BaseCommand):
                 taille = alea.choices([1, 2, 3, 4, 5, 6, 7, 8],
                                       weights=[4, 8, 14, 20, 20, 16, 11, 7])[0]
 
-                menage = Household(
+                menages.append(Household(
                     code=f"BEN-{annee}-{depart + index + 1:06d}",
                     head_name=nom_chef,
                     size=taille,
@@ -214,9 +239,7 @@ class Command(BaseCommand):
                     validation_status=alea.choices(
                         ["valide", "a_valider"], weights=[78, 22]
                     )[0],
-                )
-                menages.append(menage)
-                noms_utilises.append((nom_chef, zone))
+                ))
 
             Household.objects.bulk_create(menages)
             menages = list(Household.objects.filter(
@@ -224,8 +247,9 @@ class Command(BaseCommand):
             ).select_related("zone"))
 
             for menage in menages:
-                projet = alea.choice(projets_actifs)
-                liens.append(HouseholdProject(household=menage, project=projet))
+                liens.append(HouseholdProject(
+                    household=menage, project=alea.choice(projets_actifs)
+                ))
                 consentements.append(Consent(
                     household=menage,
                     granted=True,
@@ -234,7 +258,6 @@ class Command(BaseCommand):
                     )[0],
                     collected_at=menage.registered_at,
                 ))
-                # chef de menage
                 prenom_chef, nom_famille = menage.head_name.split(" ", 1)
                 membres.append(Person(
                     household=menage, first_name=prenom_chef.title(),
@@ -294,17 +317,84 @@ class Command(BaseCommand):
                 ))
             DuplicateCandidate.objects.bulk_create(doublons, ignore_conflicts=True)
 
+            # -------------------------------------------- activites terrain
+            activites = []
+            compteur = 0
+            for projet in projets_actifs:
+                sites = list(projet.sites.all())
+                for _ in range(alea.randint(7, 13)):
+                    compteur += 1
+                    type_code, gabarit, resultat = alea.choice(ACTIVITES_TYPES)
+                    jours = alea.randint(0, 100)
+                    date_realisation = timezone.localdate() - timedelta(days=jours)
+                    if date_realisation < projet.start_date:
+                        date_realisation = projet.start_date + timedelta(days=alea.randint(1, 30))
+
+                    statut = alea.choices(
+                        ["validee", "soumise", "brouillon", "rejetee"],
+                        weights=[56, 24, 14, 6],
+                    )[0]
+                    activite = Activity(
+                        code=f"ACT-{annee}-{compteur:06d}",
+                        project=projet,
+                        type=type_code,
+                        activity_date=date_realisation,
+                        zone=alea.choice(sites).zone,
+                        description=gabarit.format(n=alea.randint(12, 60)),
+                        results=resultat,
+                        latitude=Decimal(str(round(alea.uniform(6.1, 11.0), 6))),
+                        longitude=Decimal(str(round(alea.uniform(0.0, 1.8), 6))),
+                        gps_accuracy=alea.randint(5, 40),
+                        status=statut,
+                        agent=agent,
+                        entry_duration_seconds=alea.randint(45, 900),
+                    )
+                    if statut in ("soumise", "validee", "rejetee"):
+                        activite.submitted_at = timezone.now() - timedelta(days=max(jours - 1, 0))
+                    if statut in ("validee", "rejetee"):
+                        activite.validated_by = superviseur
+                        activite.validated_at = timezone.now() - timedelta(days=max(jours - 2, 0))
+                    if statut == "rejetee":
+                        activite.rejection_reason = alea.choice(MOTIFS_REJET)
+                    activites.append(activite)
+
+            Activity.objects.bulk_create(activites, batch_size=200)
+            activites = list(Activity.objects.filter(
+                code__in=[a.code for a in activites]
+            ))
+
+            participations = []
+            for activite in activites:
+                hommes = alea.randint(4, 45)
+                femmes = alea.randint(6, 60)
+                participations.append(ActivityParticipation(
+                    activity=activite,
+                    males_count=hommes,
+                    females_count=femmes,
+                    age_breakdown={
+                        "0_5": alea.randint(0, 8),
+                        "6_17": alea.randint(2, 20),
+                        "18_59": max(hommes + femmes - alea.randint(2, 15), 0),
+                        "60_plus": alea.randint(0, 6),
+                    },
+                ))
+            ActivityParticipation.objects.bulk_create(participations, batch_size=300)
+
         journaliser(
             "modification",
             object_type="Demonstration",
             object_label="Chargement du jeu de demonstration",
-            detail=f"{len(projets)} projets, {len(menages)} menages, {len(membres)} individus",
+            detail=(
+                f"{len(projets)} projets, {len(menages)} menages, "
+                f"{len(membres)} individus, {len(activites)} activites"
+            ),
         )
 
-        total_personnes = Person.objects.count()
+        a_valider = Activity.objects.filter(status="soumise").count()
         self.stdout.write(self.style.SUCCESS(
             f"\n{len(COMPTES)} comptes, {len(projets)} projets, "
-            f"{Household.objects.count()} menages, {total_personnes} individus, "
+            f"{Household.objects.count()} menages, {Person.objects.count()} individus, "
+            f"{Activity.objects.count()} activites (dont {a_valider} a valider), "
             f"{DuplicateCandidate.objects.count()} doublons a arbitrer.\n"
         ))
         self.stdout.write("Comptes de demonstration (mot de passe commun) :")

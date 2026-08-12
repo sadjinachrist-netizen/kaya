@@ -21,6 +21,18 @@ MODELES_AUDITES = [
     "beneficiaries.Consent",
     "beneficiaries.HouseholdProject",
     "beneficiaries.DuplicateCandidate",
+    "activities.Activity",
+    "activities.Attachment",
+    "activities.ActivityParticipation",
+    "funding.Grant",
+    "funding.GrantProject",
+    "funding.BudgetLine",
+    "funding.Expense",
+    "funding.ReportDeadline",
+    "funding.Installment",
+    "monitoring.LogFrameElement",
+    "monitoring.Indicator",
+    "monitoring.IndicatorReading",
 ]
 
 # Jamais journalises : secrets ou bruit sans valeur
