@@ -16,3 +16,8 @@ Pillow
 
 # ---------- Authentification ----------
 djangorestframework-simplejwt
+
+# ---------- Tests ----------
+pytest
+pytest-django
+pytest-cov

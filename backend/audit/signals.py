@@ -16,6 +16,11 @@ MODELES_AUDITES = [
     "projects.InterventionSite",
     "projects.TeamMember",
     "projects.Amendment",
+    "beneficiaries.Household",
+    "beneficiaries.Person",
+    "beneficiaries.Consent",
+    "beneficiaries.HouseholdProject",
+    "beneficiaries.DuplicateCandidate",
 ]
 
 # Jamais journalises : secrets ou bruit sans valeur
