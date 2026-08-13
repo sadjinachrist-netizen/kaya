@@ -155,6 +155,15 @@ class Activity(models.Model):
             new_value={"status": nouveau},
             detail=motif or f"Passage de {ancien} a {nouveau}",
         )
+
+                # Notifications du workflow de validation
+        from notifications.services import activite_soumise, activite_statuee
+
+        if nouveau == self.Status.SOUMISE:
+            activite_soumise(self)
+        elif nouveau in (self.Status.VALIDEE, self.Status.REJETEE):
+            activite_statuee(self, validee=(nouveau == self.Status.VALIDEE))
+
         return self
 
     def soumettre(self, *, auteur=None):

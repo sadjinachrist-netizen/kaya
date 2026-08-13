@@ -112,7 +112,12 @@ def enregistrer_menage(*, agent, donnees, membres, consentement, projet=None):
         )
     if candidats:
         DuplicateCandidate.objects.bulk_create(candidats, ignore_conflicts=True)
+        # Les objets issus de bulk_create avec ignore_conflicts n'ont pas de
+        # cle primaire : on les relit avant de notifier.
+        from notifications.services import doublon_detecte
 
+        for candidat in DuplicateCandidate.objects.filter(household_b=menage):
+            doublon_detecte(candidat)
     return menage, candidats
 
 

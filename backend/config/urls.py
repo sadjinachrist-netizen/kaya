@@ -67,6 +67,7 @@ urlpatterns = [
     path("api/", include("monitoring.urls")),
     path("api/", include("dashboards.urls")),
     path("api/", include("sync.urls")),
+    path("api/", include("notifications.urls")),
 ]
 
 if settings.DEBUG:

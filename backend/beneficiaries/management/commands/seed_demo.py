@@ -31,6 +31,13 @@ from beneficiaries.models import (
 from projects.models import InterventionSite, Project, TeamMember
 from referentials.models import Sector, Zone
 
+from funding.models import (
+    BudgetLine, Expense, Grant, GrantProject, Installment, ReportDeadline,
+)
+from monitoring.models import (
+    Indicator, IndicatorDisaggregation, IndicatorReading, LogFrameElement,
+)
+
 MOT_DE_PASSE = "Demo2026Kaya"
 
 COMPTES = [
@@ -116,6 +123,18 @@ class Command(BaseCommand):
 
         with audit_suspendu():
             if options["reset"]:
+                 # Dependances aval : le suivi-evaluation et le financier
+                # doivent partir avant les projets, a cause des PROTECT.
+                IndicatorReading.objects.all().delete()
+                IndicatorDisaggregation.objects.all().delete()
+                Indicator.objects.all().delete()
+                LogFrameElement.objects.all().delete()
+                Expense.objects.all().delete()
+                BudgetLine.objects.all().delete()
+                Installment.objects.all().delete()
+                ReportDeadline.objects.all().delete()
+                GrantProject.objects.all().delete()
+                Grant.objects.all().delete()
                 ActivityParticipation.objects.all().delete()
                 Attachment.objects.all().delete()
                 Activity.objects.all().delete()
@@ -194,8 +213,10 @@ class Command(BaseCommand):
                     )
                 projets.append(projet)
 
-            # L'agent et le superviseur sont affectes aux six premiers projets
-            for projet in projets[:6]:
+                        # L'agent et le superviseur sont affectes a tous les projets actifs,
+            # sinon l'agent possede des activites sur des projets qu'il ne voit pas.
+            for projet in [p for p in projets if p.status == "en_cours"]:
+
                 TeamMember.objects.get_or_create(
                     project=projet, user=agent,
                     project_role=TeamMember.ProjectRole.AGENT,
