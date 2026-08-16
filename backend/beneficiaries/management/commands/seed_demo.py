@@ -202,6 +202,8 @@ class Command(BaseCommand):
                         "status": statut,
                         "target_beneficiaries": cible,
                         "manager": chef,
+                        # les projets en cours et clotures alimentent le portail public
+                        "is_public": statut in ("en_cours", "cloture"),
                     },
                 )
                 projet.sectors.set([Sector.objects.get(code=secteur)])
