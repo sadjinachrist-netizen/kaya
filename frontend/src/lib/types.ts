@@ -238,9 +238,7 @@ export interface MenageListe {
   registered_at: string;
 }
 
-export interface TableauAgent {
-  role: string;
-  tuiles: Record<string, number>;
+export interface TableauAgent extends TableauDeBord {
   collecte_du_mois: { menages: number; activites: number };
   a_corriger: {
     id: number;
@@ -456,38 +454,3 @@ export interface PreferenceNotification {
 
 
 
-/** Telechargement d'un fichier protege.
- *  Un <a href> ne peut pas porter le jeton : il faut passer par fetch,
- *  puis fabriquer un lien temporaire vers le blob recu. */
-export async function telecharger(chemin: string, nomParDefaut: string): Promise<void> {
-  const envoyer = async (): Promise<Response> => {
-    const entetes: Record<string, string> = {};
-    const acces = jetons.acces();
-    if (acces) entetes.Authorization = `Bearer ${acces}`;
-    return fetch(`${BASE}${chemin}`, { headers: entetes });
-  };
-
-  let reponse = await envoyer();
-  if (reponse.status === 401 && jetons.rafraichissement()) {
-    if (await rafraichirJeton()) reponse = await envoyer();
-  }
-
-  if (!reponse.ok) {
-    const texte = await reponse.text();
-    const corps = texte ? JSON.parse(texte) : null;
-    throw new ErreurApi(reponse.status, messageLisible(reponse.status, corps), corps);
-  }
-
-  const disposition = reponse.headers.get("Content-Disposition") ?? "";
-  const trouve = /filename="?([^";]+)"?/.exec(disposition);
-
-  const blob = await reponse.blob();
-  const url = URL.createObjectURL(blob);
-  const lien = document.createElement("a");
-  lien.href = url;
-  lien.download = trouve ? trouve[1] : nomParDefaut;
-  document.body.appendChild(lien);
-  lien.click();
-  lien.remove();
-  URL.revokeObjectURL(url);
-}
