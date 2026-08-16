@@ -15,5 +15,12 @@ X_FRAME_OPTIONS = "DENY"
 
 CORS_ALLOWED_ORIGINS = config("CORS_ALLOWED_ORIGINS", default="", cast=Csv())
 
+# Les URL de deploiement Vercel changent a chaque mise en ligne
+# (kaya-gk38dvfxr-…, kaya-q4upb3bc2-…). Une expression reguliere evite
+# d'avoir a les declarer une par une dans les variables d'environnement.
+CORS_ALLOWED_ORIGIN_REGEXES = [
+    r"^https://kaya-[a-z0-9-]+\.vercel\.app$",
+]
+
 # Domaines autorises a soumettre des formulaires (admin Django notamment)
 CSRF_TRUSTED_ORIGINS = config("CSRF_TRUSTED_ORIGINS", default="", cast=Csv())
