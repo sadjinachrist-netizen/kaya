@@ -1,0 +1,45 @@
+name: Reinitialisation de la demonstration
+
+# 02:00 UTC, soit 02:00 a Lome — le Togo est sur UTC+0 toute l'annee.
+on:
+  schedule:
+    - cron: "0 2 * * *"
+  workflow_dispatch:        # permet aussi un declenchement manuel
+
+jobs:
+  reinitialiser:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Installer les dependances
+        run: pip install -r requirements.txt
+
+      - name: Remettre le jeu de demonstration a zero
+        env:
+          DJANGO_SETTINGS_MODULE: config.settings.prod
+          SECRET_KEY: ${{ secrets.SECRET_KEY }}
+          DEBUG: "False"
+          ALLOWED_HOSTS: .onrender.com
+          DB_NAME: ${{ secrets.DB_NAME }}
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DB_HOST: ${{ secrets.DB_HOST }}
+          DB_PORT: "5432"
+          DB_SSLMODE: require
+        run: |
+          python manage.py migrate --noinput
+          python manage.py geolocaliser_zones
+          python manage.py seed_demo --reset
+          python manage.py seed_finance
+          python manage.py seed_monitoring

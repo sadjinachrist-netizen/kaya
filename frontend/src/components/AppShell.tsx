@@ -111,7 +111,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         </header>
 
-        <main className="px-6 pb-10 pt-20">{children}</main>
+        <main className="px-6 pb-10 pt-20">
+          <p className="mb-5 rounded-card border border-warning/25 bg-warning-soft px-4 py-2.5 text-caption text-warning">
+            Environnement de démonstration — toutes les données sont fictives et
+            générées automatiquement. La base est réinitialisée chaque nuit.
+          </p>
+          {children}
+        </main>
       </div>
     </div>
   );
