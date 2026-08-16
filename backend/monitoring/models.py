@@ -1,6 +1,6 @@
 """Cadre logique et indicateurs - paquetage P6 du cahier d'analyse."""
 from decimal import Decimal
-
+from django.utils.functional import cached_property
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
@@ -152,12 +152,17 @@ class Indicator(models.Model):
         return self.element.project
 
     # ------------------------------------------------------------- valeurs
-    @property
+    @cached_property
     def dernier_releve(self):
-        return self.readings.filter(status=IndicatorReading.Status.VALIDE).order_by(
-            "-period_end"
-        ).first()
-
+        # on parcourt en Python plutot que de requeter : si l'appelant a
+        # prefetche `readings`, l'ensemble du tableau de bord tient en une
+        # seule requete au lieu d'une par indicateur.
+        valides = [
+            r for r in self.readings.all()
+            if r.status == IndicatorReading.Status.VALIDE
+        ]
+        return max(valides, key=lambda r: r.period_end) if valides else None
+    
     @property
     def valeur_atteinte(self):
         releve = self.dernier_releve
@@ -206,6 +211,18 @@ class Indicator(models.Model):
         if ratio >= 0.60:
             return "en_cours"
         return "en_retard"
+
+    # ------------------------------------------------------------- calcul
+    def calculer(self):
+        """Valeur derivee automatiquement des donnees deja saisies.
+
+        Renvoie None si l'indicateur est renseigne manuellement : dans ce
+        cas seule la saisie d'un releve fait foi.
+        """
+        if self.computation_mode != self.Mode.CALCULE:
+            return None
+
+        from activities.models import Activity, ActivityParticipation
 
         from activities.models import Activity, ActivityParticipation
         from beneficiaries.models import HouseholdProject, Person

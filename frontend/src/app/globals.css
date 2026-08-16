@@ -1,0 +1,94 @@
+@import "tailwindcss";
+
+/* Jetons de conception issus du design system Kaya.
+   Tailwind 4 declare le theme en CSS : chaque variable --color-X
+   genere automatiquement les utilitaires bg-X, text-X, border-X. */
+@theme {
+  /* ---------- surfaces ---------- */
+  --color-background: #f7f9fa;
+  --color-surface: #ffffff;
+  --color-surface-low: #f1f4ef;
+  --color-surface-high: #e6e9e4;
+  --color-border: #dde3e8;
+
+  /* ---------- texte ---------- */
+  --color-ink: #1a1a1a;
+  --color-ink-muted: #5b6770;
+  --color-outline: #707a72;
+
+  /* ---------- marque ---------- */
+  --color-primary: #004429;
+  --color-primary-strong: #0b5d3b;
+  --color-primary-soft: #e8f1ec;
+  --color-on-primary: #ffffff;
+
+  /* ---------- semantique ---------- */
+  --color-info: #1f4e79;
+  --color-info-soft: #e4ecf5;
+  --color-success: #0b5d3b;
+  --color-success-soft: #e8f1ec;
+  --color-warning: #a5761a;
+  --color-warning-soft: #fdf3e3;
+  --color-danger: #8f4a4a;
+  --color-danger-soft: #fbeaea;
+
+  /* ---------- typographie ---------- */
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+
+  --text-display: 32px;
+  --text-display--line-height: 40px;
+  --text-display--font-weight: 600;
+
+  --text-title: 24px;
+  --text-title--line-height: 32px;
+  --text-title--font-weight: 600;
+
+  --text-heading: 20px;
+  --text-heading--line-height: 28px;
+  --text-heading--font-weight: 600;
+
+  --text-body: 14px;
+  --text-body--line-height: 20px;
+
+  --text-body-lg: 16px;
+  --text-body-lg--line-height: 24px;
+
+  --text-caption: 12px;
+  --text-caption--line-height: 16px;
+
+  --text-overline: 11px;
+  --text-overline--line-height: 16px;
+  --text-overline--font-weight: 600;
+
+  /* ---------- arrondis ---------- */
+  --radius-card: 10px;
+}
+
+@layer base {
+  html,
+  body {
+    margin: 0;
+    padding: 0;
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-size: var(--text-body);
+    line-height: var(--text-body--line-height);
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+/* Barre de defilement discrete, comme dans les maquettes */
+@layer utilities {
+  .scrollbar-fine::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .scrollbar-fine::-webkit-scrollbar-thumb {
+    background: var(--color-border);
+    border-radius: 9999px;
+  }
+}

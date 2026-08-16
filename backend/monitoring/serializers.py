@@ -55,7 +55,7 @@ class IndicatorListSerializer(serializers.ModelSerializer):
         fields = ["id", "code", "title", "unit", "unit_label", "baseline", "target",
                   "frequency", "computation_mode", "project", "project_code",
                   "element", "element_code",
-                  "valeur_atteinte", "taux_atteinte", "statut_atteinte"]
+                  "valeur_atteinte", "taux_atteinte", "statut_atteinte", "taux_attendu"]
 
 
 class IndicatorDetailSerializer(IndicatorListSerializer):

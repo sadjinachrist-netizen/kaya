@@ -1,4 +1,5 @@
 """Projets et equipes - paquetage P3 du cahier d'analyse."""
+from decimal import Decimal
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
@@ -53,6 +54,14 @@ class Project(models.Model):
     )
     progress_rate = models.PositiveSmallIntegerField(_("taux d'avancement"), default=0)
 
+
+    is_public = models.BooleanField(
+        _("publiable sur le portail"),
+        default=False,
+        help_text=_("Seuls les projets marques publiables sont exposes sans authentification."),
+    )
+
+    
     manager = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT,
@@ -140,16 +149,31 @@ class Project(models.Model):
         """Avancement decompose en trois composantes explicables.
 
         Contrairement a la v1, aucune ponderation arbitraire : chaque
-        composante est affichee separement dans le tableau de bord.
-        Les deux dernieres seront branchees avec les indicateurs (P6)
-        et le budget (P4).
+        composante est restituee separement. Un projet peut avoir
+        consomme 70 % de son budget en n'ayant atteint que 30 % de ses
+        cibles — c'est precisement ce que cette decomposition rend visible.
         """
+        from funding.models import Grant
+        from monitoring.models import Indicator
+
+        indicateurs = Indicator.objects.filter(element__project=self).prefetch_related(
+            "readings"
+        )
+        taux = [i.taux_atteinte for i in indicateurs]
+        moyenne_indicateurs = round(sum(taux) / len(taux), 1) if taux else None
+
+        financements = Grant.objects.filter(project_links__project=self).distinct()
+        engage = sum((g.amount for g in financements), Decimal("0"))
+        depense = sum((g.montant_depense for g in financements), Decimal("0"))
+        # pondere par les montants : une convention de 300 000 EUR ne pese
+        # pas autant qu'une convention de 20 000 EUR
+        taux_budget = round(float(depense) / float(engage) * 100, 1) if engage else None
+
         return {
             "temporel": self.avancement_temporel,
-            "indicateurs": None,   # a brancher avec IndicatorReading
-            "budgetaire": None,    # a brancher avec Expense
+            "indicateurs": moyenne_indicateurs,
+            "budgetaire": taux_budget,
         }
-
 
 class InterventionSite(models.Model):
     """Localite sur laquelle un projet intervient. Composition avec Project."""

@@ -45,6 +45,9 @@ class ProjectSerializer(serializers.ModelSerializer):
 
     manager_name = serializers.CharField(source="manager.full_name", read_only=True)
     status_label = serializers.CharField(source="get_status_display", read_only=True)
+    sector_labels = serializers.SlugRelatedField(
+        source="sectors", many=True, read_only=True, slug_field="label"
+    )
     sites = InterventionSiteSerializer(many=True, read_only=True)
     members = TeamMemberSerializer(many=True, read_only=True)
     transitions_possibles = serializers.ListField(read_only=True)
@@ -52,7 +55,7 @@ class ProjectSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Project
-        fields = ["id", "code", "title", "description", "sectors",
+        fields = ["id", "code", "title", "description", "sectors", "sector_labels",
                   "start_date", "end_date", "status", "status_label",
                   "target_beneficiaries", "progress_rate", "avancement",
                   "manager", "manager_name", "sites", "members",

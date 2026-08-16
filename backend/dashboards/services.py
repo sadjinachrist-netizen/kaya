@@ -135,8 +135,10 @@ def tableau_projet(user, projet=None):
         projets = projets.filter(pk=projet.pk)
 
     menages = _menages_du_perimetre(projets)
-    indicateurs = Indicator.objects.filter(element__project__in=projets).select_related(
-        "element__project"
+    indicateurs = (
+        Indicator.objects.filter(element__project__in=projets)
+        .select_related("element__project")
+        .prefetch_related("readings")
     )
     repartition = {"atteint": 0, "en_cours": 0, "en_retard": 0}
     detail_indicateurs = []
@@ -305,7 +307,11 @@ def tableau_direction(user):
     menages = _menages_du_perimetre(projets)
     financements = Grant.objects.filter(project_links__project__in=projets).distinct()
 
-    indicateurs = Indicator.objects.filter(element__project__in=projets)
+    indicateurs = (
+        Indicator.objects.filter(element__project__in=projets)
+        .select_related("element__project")
+        .prefetch_related("readings")
+    )
     en_retard = sum(1 for i in indicateurs if i.statut_atteinte == "en_retard")
 
     alertes = []
@@ -350,6 +356,78 @@ def tableau_direction(user):
     }
 
 
+# --------------------------------------------------------------- bailleur
+def tableau_bailleur(user):
+    """Restitution destinee au bailleur de fonds.
+
+    Le bailleur voit les resultats des projets qu'il finance, mais
+    uniquement **ses** conventions : le cofinancement consenti par un
+    autre bailleur sur le meme projet ne lui est pas restitue.
+    """
+    projets = projets_accessibles(user)
+    financements = Grant.objects.filter(project_links__project__in=projets)
+    if user.donor_id:
+        financements = financements.filter(donor_id=user.donor_id)
+    financements = financements.distinct().select_related("donor", "currency")
+
+    menages = _menages_du_perimetre(projets)
+    indicateurs = (
+        Indicator.objects.filter(element__project__in=projets)
+        .select_related("element__project")
+        .prefetch_related("readings")
+    )
+
+    repartition = {"atteint": 0, "en_cours": 0, "en_retard": 0}
+    detail_indicateurs = []
+    for indicateur in indicateurs:
+        repartition[indicateur.statut_atteinte] += 1
+        detail_indicateurs.append({
+            "id": indicateur.id, "code": indicateur.code, "titre": indicateur.title,
+            "unite": indicateur.unit, "cible": str(indicateur.target),
+            "atteint": str(indicateur.valeur_atteinte),
+            "taux": indicateur.taux_atteinte, "attendu": indicateur.taux_attendu,
+            "statut": indicateur.statut_atteinte,
+        })
+
+    echeances = ReportDeadline.objects.filter(
+        grant__in=financements,
+        status__in=[ReportDeadline.Status.A_FAIRE, ReportDeadline.Status.EN_COURS],
+        due_date__lte=timezone.localdate() + timedelta(days=90),
+    ).select_related("grant").order_by("due_date")
+
+    return {
+        "role": "bailleur",
+        "tuiles": {
+            "projets_finances": projets.count(),
+            "conventions": financements.count(),
+            "menages": menages.count(),
+            "personnes_atteintes": Person.objects.filter(household__in=menages).count(),
+        },
+        "indicateurs": {
+            "repartition": repartition,
+            "detail": sorted(detail_indicateurs, key=lambda i: i["taux"])[:12],
+        },
+        "budget": [
+            {
+                "convention": g.contract_number, "bailleur": str(g.donor),
+                "montant": str(g.amount), "devise": g.currency.code,
+                "consomme": g.taux_consommation, "temps_ecoule": g.taux_temps_ecoule,
+                "ecart": g.ecart_rythme, "alerte": g.alerte_rythme,
+            }
+            for g in financements
+        ],
+        "sadd": _sadd(menages),
+        "echeances": [
+            {
+                "id": e.id, "type": e.get_type_display(),
+                "convention": e.grant.contract_number,
+                "echeance": e.due_date, "jours_restants": e.jours_restants,
+                "alerte": e.alerte,
+            }
+            for e in echeances[:8]
+        ],
+    }
+
 # --------------------------------------------------------------- dispatch
 TABLEAUX = {
     "agent_terrain": tableau_agent,
@@ -361,6 +439,7 @@ TABLEAUX = {
     "direction": tableau_direction,
     "bailleur": tableau_projet,
     "auditeur": tableau_direction,
+    "bailleur": tableau_bailleur,
 }
 
 # Ordre de priorite lorsqu'un utilisateur cumule plusieurs roles

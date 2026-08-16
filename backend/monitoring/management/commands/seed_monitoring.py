@@ -180,7 +180,8 @@ class Command(BaseCommand):
                         avancement = Decimal(str(
                             min(max(jours_ecoules / duree_projet, 0.0), 1.0)
                         ))
-                        valeur = (cible * trajectoire * avancement).quantize(Decimal("0.01"))
+                        precision = Decimal("0.1") if unite == "pourcentage" else Decimal("1")
+                        valeur = (cible * trajectoire * avancement).quantize(precision)
                         releves.append(IndicatorReading(
                             indicator=indicateur,
                             period_start=debut_periode,
